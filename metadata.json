@@ -1,0 +1,7 @@
+{
+  "name": "ApexFit",
+  "description": "Comprehensive A to Z fitness platform with personalized workouts, nutrition tracking, wearable sensor integration, social goal sharing, progress analytics, and premium smart coaching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
