@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Exercise
 import com.example.data.model.WorkoutRoutineEntity
+import com.example.ui.components.AiWorkoutAdaptationBottomSheet
 import com.example.ui.components.TierBadgeChip
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FitnessViewModel
@@ -40,11 +41,13 @@ fun WorkoutsScreen(
 ) {
     val routines by viewModel.allRoutines.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val aiAdaptation by viewModel.aiAdaptation.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     var showCustomWorkoutDialog by remember { mutableStateOf(false) }
     var showAiCoachDialog by remember { mutableStateOf(false) }
+    var showAiAdaptationSheet by remember { mutableStateOf(false) }
 
     val categories = listOf("All", "Strength", "HIIT", "Cardio", "Calisthenics", "Yoga")
 
@@ -81,6 +84,7 @@ fun WorkoutsScreen(
             item {
                 AiSmartCoachBanner(
                     onGenerateAi = { showAiCoachDialog = true },
+                    onOpenAdaptation = { showAiAdaptationSheet = true },
                     userTier = userProfile?.subscriptionTier ?: "PRO",
                     onOpenPremium = onOpenPremium
                 )
@@ -209,11 +213,19 @@ fun WorkoutsScreen(
             }
         )
     }
+
+    if (showAiAdaptationSheet) {
+        AiWorkoutAdaptationBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showAiAdaptationSheet = false }
+        )
+    }
 }
 
 @Composable
 fun AiSmartCoachBanner(
     onGenerateAi: () -> Unit,
+    onOpenAdaptation: () -> Unit,
     userTier: String,
     onOpenPremium: () -> Unit
 ) {
@@ -238,7 +250,7 @@ fun AiSmartCoachBanner(
                 )
                 .padding(20.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -255,38 +267,58 @@ fun AiSmartCoachBanner(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "AI SMART COACH",
+                            text = "AI DYNAMIC COACH & ADAPTATION",
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             color = BentoPrimary,
                             letterSpacing = 1.sp
                         )
                     }
-                    TierBadgeChip(tier = "PRO FEATURE", onClick = onOpenPremium)
+                    TierBadgeChip(tier = "AI POWERED", onClick = onOpenPremium)
                 }
 
                 Text(
-                    text = "Generate Personalized Workout in Seconds",
+                    text = "Dynamic Routine Adaptation & Smart Overload",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
 
                 Text(
-                    text = "Specify your target muscles, equipment, and duration. AI Coach designs an optimal set/rep periodization plan tailored to your recovery score.",
+                    text = "AI analyzes your wearable recovery metrics, workout history, and muscle fatigue feedback to dynamically adjust intensity, substitute exercises, or recommend rest days.",
                     style = MaterialTheme.typography.bodySmall,
                     color = BentoTextSecondary
                 )
 
-                Button(
-                    onClick = onGenerateAi,
-                    colors = ButtonDefaults.buttonColors(containerColor = BentoPrimary),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.testTag("generate_ai_routine_button")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Filled.Psychology, contentDescription = null, tint = BentoPrimaryDark)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Generate with AI Coach", color = BentoPrimaryDark, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = onOpenAdaptation,
+                        colors = ButtonDefaults.buttonColors(containerColor = BentoPrimary),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("ai_adapt_routines_button")
+                    ) {
+                        Icon(imageVector = Icons.Filled.Psychology, contentDescription = null, tint = BentoPrimaryDark, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Adapt Routines", color = BentoPrimaryDark, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = onGenerateAi,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("generate_ai_routine_button")
+                    ) {
+                        Icon(imageVector = Icons.Filled.AddCircleOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "New AI Plan", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
                 }
             }
         }

@@ -55,10 +55,17 @@ fun DashboardScreen(
     val totalWaterMl by viewModel.totalWaterTodayMl.collectAsState()
     val liveTelemetry by viewModel.liveTelemetry.collectAsState()
     val activeWearable by viewModel.activeWearable.collectAsState()
+    val challenges by viewModel.challenges.collectAsState()
+    val aiAdaptation by viewModel.aiAdaptation.collectAsState()
+
+    var showAiAdaptationSheet by remember { mutableStateOf(false) }
 
     val totalCalsConsumed = remember(todayMeals) { todayMeals.sumOf { it.calories } }
     val recommendedRoutine = remember(routines) {
         routines.firstOrNull { it.id == 1L } ?: routines.firstOrNull()
+    }
+    val activeDailyQuest = remember(challenges) {
+        challenges.firstOrNull { it.category == com.example.data.model.ChallengeCategory.DAILY }
     }
 
     LazyColumn(
@@ -87,6 +94,157 @@ fun DashboardScreen(
                 onOpenWearables = onNavigateToWearables,
                 onOpenSocial = onNavigateToSocial
             )
+        }
+
+        // 2.5. AI Dynamic Workout Adaptation & Readiness Bento Card
+        item {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = BentoSurfaceElevated),
+                border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(ElectricGreen, NeonCyan))),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showAiAdaptationSheet = true }
+                    .testTag("dashboard_ai_adaptation_card")
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = ElectricGreen, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "AI DYNAMIC COACH READINESS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = ElectricGreen,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = ElectricGreen.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                "88% OPTIMAL",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                color = ElectricGreen,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Dynamic Routine Adaptation Ready",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BentoTextPrimary
+                    )
+                    Text(
+                        "AI analyzed your sleep, heart rate, and fatigue to adapt today's sets, weights, and exercises.",
+                        fontSize = 12.sp,
+                        color = BentoTextSecondary,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Psychology, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Overload +2.5kg • Legs Protected", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
+                        }
+
+                        Button(
+                            onClick = { showAiAdaptationSheet = true },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricGreen, contentColor = Color.Black),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Review AI Plan", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2.7. Active Daily Quest Challenge Card
+        activeDailyQuest?.let { quest ->
+            item {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = BentoSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(BentoBorder, BentoBorderLight))),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToSocial() }
+                        .testTag("dashboard_daily_quest_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🔥", fontSize = 16.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "DAILY QUEST: ${quest.title.uppercase()}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFFFF5252),
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFFFD700).copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    "+${quest.xpReward} XP",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFFFFD700),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Text(quest.description, fontSize = 12.sp, color = BentoTextSecondary)
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("${quest.currentValue.toInt()} / ${quest.targetValue.toInt()}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BentoTextPrimary)
+                            Text("${(quest.progressFraction * 100).toInt()}%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = ElectricGreen)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { quest.progressFraction },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = ElectricGreen,
+                            trackColor = BentoSurfaceElevated
+                        )
+                    }
+                }
+            }
         }
 
         // 3. Wearable Sync Device Bar
@@ -184,6 +342,13 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    if (showAiAdaptationSheet) {
+        AiWorkoutAdaptationBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showAiAdaptationSheet = false }
+        )
     }
 }
 
