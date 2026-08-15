@@ -26,11 +26,31 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Exercise
+import com.example.data.model.ExerciseLibraryEntity
 import com.example.data.model.WorkoutRoutineEntity
 import com.example.ui.components.AiWorkoutAdaptationBottomSheet
+import com.example.ui.components.ExerciseLibraryDialog
 import com.example.ui.components.TierBadgeChip
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FitnessViewModel
+
+data class BodyPartItem(
+    val id: String,
+    val name: String,
+    val icon: String,
+    val description: String,
+    val accentColor: Color
+)
+
+val ALL_BODY_PARTS = listOf(
+    BodyPartItem("Chest", "Chest", "🏋️‍♂️", "Upper, Mid & Lower Pecs", CoralOrange),
+    BodyPartItem("Back", "Back", "🦇", "Lats, Traps & Rhomboids", ElectricBlue),
+    BodyPartItem("Legs", "Legs", "🦵", "Quads, Hamstrings & Calves", EmeraldGreen),
+    BodyPartItem("Shoulders", "Shoulders", "🛡️", "Anterior, Lateral & Rear Delts", AmberGold),
+    BodyPartItem("Arms", "Arms", "💪", "Biceps, Triceps & Forearms", NeonCyan),
+    BodyPartItem("Core", "Core", "⚡", "Abs, Obliques & Lower Back", RoyalPurple),
+    BodyPartItem("Full Body", "Full Body", "🌐", "Compound Kinetic Power", ElectricBlue)
+)
 
 @Composable
 fun WorkoutsScreen(
@@ -40,6 +60,7 @@ fun WorkoutsScreen(
     modifier: Modifier = Modifier
 ) {
     val routines by viewModel.allRoutines.collectAsState()
+    val allExercises by viewModel.allExercises.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val aiAdaptation by viewModel.aiAdaptation.collectAsState()
 
@@ -48,13 +69,24 @@ fun WorkoutsScreen(
     var showCustomWorkoutDialog by remember { mutableStateOf(false) }
     var showAiCoachDialog by remember { mutableStateOf(false) }
     var showAiAdaptationSheet by remember { mutableStateOf(false) }
+    var showExerciseLibraryDialog by remember { mutableStateOf(false) }
+    var selectedBodyPartForLibrary by remember { mutableStateOf("All") }
 
-    val categories = listOf("All", "Strength", "HIIT", "Cardio", "Calisthenics", "Yoga")
+    val categories = listOf("All", "Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Full Body", "HIIT", "Yoga")
 
     val filteredRoutines = remember(routines, searchQuery, selectedCategory) {
         routines.filter { r ->
-            (selectedCategory == "All" || r.category.equals(selectedCategory, ignoreCase = true)) &&
-            (searchQuery.isBlank() || r.title.contains(searchQuery, ignoreCase = true) || r.targetMuscleGroups.contains(searchQuery, ignoreCase = true))
+            val matchesCategory = if (selectedCategory == "All") {
+                true
+            } else {
+                r.category.equals(selectedCategory, ignoreCase = true) ||
+                r.targetMuscleGroups.contains(selectedCategory, ignoreCase = true)
+            }
+            val matchesSearch = searchQuery.isBlank() ||
+                r.title.contains(searchQuery, ignoreCase = true) ||
+                r.targetMuscleGroups.contains(searchQuery, ignoreCase = true) ||
+                r.description.contains(searchQuery, ignoreCase = true)
+            matchesCategory && matchesSearch
         }
     }
 
@@ -90,29 +122,115 @@ fun WorkoutsScreen(
                 )
             }
 
-            // Search Bar
+            // Search Bar & Anatomy Library Button
             item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search routines, exercises, or muscle groups...") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Clear")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search muscle, routine...") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Clear")
+                                }
                             }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("workout_search_input")
-                )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("workout_search_input")
+                    )
+
+                    FilledTonalIconButton(
+                        onClick = {
+                            selectedBodyPartForLibrary = "All"
+                            showExerciseLibraryDialog = true
+                        },
+                        modifier = Modifier
+                            .size(54.dp)
+                            .testTag("btn_open_exercise_library"),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Filled.MenuBook, contentDescription = "Exercise Library", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
 
-            // Category Filter Chips
+            // Body Parts Quick Selector Row
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "TARGET BODY PART",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "7 Muscle Groups",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(ALL_BODY_PARTS) { part ->
+                            val isSelected = selectedCategory.equals(part.id, ignoreCase = true)
+                            Card(
+                                modifier = Modifier
+                                    .width(130.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        selectedCategory = if (isSelected) "All" else part.id
+                                    }
+                                    .testTag("body_part_${part.id}"),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) part.accentColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, part.accentColor) else CardDefaults.outlinedCardBorder()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = part.icon, fontSize = 24.sp)
+                                    Text(
+                                        text = part.name,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp,
+                                        color = if (isSelected) part.accentColor else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = part.description,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Category & Body Part Filter Chips
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -171,7 +289,7 @@ fun WorkoutsScreen(
                         ) {
                             Icon(imageVector = Icons.Filled.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
                             Text("No routines found", fontWeight = FontWeight.Bold)
-                            Text("Try adjusting your search query or filters", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Try selecting 'All' or a different body part", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -186,6 +304,14 @@ fun WorkoutsScreen(
                 }
             }
         }
+    }
+
+    if (showExerciseLibraryDialog) {
+        ExerciseLibraryDialog(
+            exercises = allExercises,
+            initialMuscleGroup = selectedBodyPartForLibrary,
+            onDismiss = { showExerciseLibraryDialog = false }
+        )
     }
 
     // Dialogs

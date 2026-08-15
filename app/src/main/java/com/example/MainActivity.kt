@@ -1,10 +1,10 @@
 package com.example
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,7 +34,7 @@ enum class AppTab(val title: String, val iconSelected: ImageVector, val iconUnse
     PROFILE("Profile", Icons.Filled.Person, Icons.Outlined.Person, "nav_profile")
 }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: FitnessViewModel by viewModels()
 
@@ -55,7 +55,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    if (showPremiumScreen) {
+                    val isLoggedIn = userProfile?.isLoggedIn ?: true
+
+                    if (!isLoggedIn) {
+                        AuthScreen(
+                            viewModel = viewModel,
+                            onAuthSuccess = {
+                                currentTab = AppTab.DASHBOARD
+                            }
+                        )
+                    } else if (showPremiumScreen) {
                         PremiumScreen(
                             viewModel = viewModel,
                             onBack = { showPremiumScreen = false }

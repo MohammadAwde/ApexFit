@@ -295,6 +295,172 @@ fun ProfileSettingsScreen(
                 }
             }
         }
+
+        // 6. Account & Security Card (Log out / Switch account)
+        item {
+            var showLogoutConfirmDialog by remember { mutableStateOf(false) }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AccountCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Account & Authentication",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Text(
+                        text = "Signed in as ${userProfile?.email ?: "alex.fit@apexfit.io"}",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Biometric Authentication Toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Fingerprint,
+                                contentDescription = null,
+                                tint = NeonCyan,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Biometric Quick Sign-In",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Allow fingerprint & face unlock on this device",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = userProfile?.isBiometricEnabled ?: true,
+                            onCheckedChange = { viewModel.toggleBiometricSetting(it) },
+                            modifier = Modifier.testTag("switch_biometric_auth")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showLogoutConfirmDialog = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .testTag("btn_profile_logout"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = CrimsonRed
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CrimsonRed.copy(alpha = 0.5f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Logout,
+                                contentDescription = "Log Out",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        Button(
+                            onClick = { showLogoutConfirmDialog = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .testTag("btn_switch_account"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SwitchAccount,
+                                contentDescription = "Switch Account",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Switch User", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            if (showLogoutConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showLogoutConfirmDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.Logout,
+                            contentDescription = null,
+                            tint = CrimsonRed,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    },
+                    title = { Text("Log Out of ApexFit?", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Text(
+                            "You will be returned to the login screen. Your workout routines, logs, and biometric history will remain safely stored on this device.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showLogoutConfirmDialog = false
+                                viewModel.logout()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Log Out")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showLogoutConfirmDialog = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
+        }
     }
 
     if (showEditProfileDialog) {

@@ -22,10 +22,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.FitnessRecipe
+import com.example.data.model.FitnessRecipeCatalog
 import com.example.data.model.MealEntryEntity
 import com.example.ui.components.MacroBreakdownCard
+import com.example.ui.components.RecipeDetailDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.FitnessViewModel
 
@@ -72,6 +76,17 @@ fun NutritionScreen(
     val waterGoal = userProfile?.dailyWaterGoalMl ?: 3200
 
     var showAddMealDialog by remember { mutableStateOf(false) }
+    var selectedRecipeForDetail by remember { mutableStateOf<FitnessRecipe?>(null) }
+    var selectedRecipeCategory by remember { mutableStateOf("All") }
+
+    val recipeCategories = listOf("All", "Breakfast", "Lunch", "Dinner", "Post-Workout", "Snack")
+    val filteredRecipes: List<FitnessRecipe> = remember(selectedRecipeCategory) {
+        if (selectedRecipeCategory == "All") {
+            FitnessRecipeCatalog.recipes
+        } else {
+            FitnessRecipeCatalog.recipes.filter { it.category.equals(selectedRecipeCategory, ignoreCase = true) }
+        }
+    }
 
     Scaffold(
         modifier = modifier.testTag("nutrition_screen"),
@@ -120,7 +135,96 @@ fun NutritionScreen(
                 )
             }
 
-            // 3. Today's Logged Meals by Category
+            // 3. RECIPES & COOKBOOK SECTION
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "FITNESS RECIPES & COOKBOOK",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Step-by-step healthy meal preparation guides",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            color = NeonCyan.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "${FitnessRecipeCatalog.recipes.size} RECIPES",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonCyan
+                            )
+                        }
+                    }
+
+                    // Recipe Category Chips
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(recipeCategories) { category ->
+                            val isSelected = selectedRecipeCategory == category
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedRecipeCategory = category },
+                                label = {
+                                    Text(
+                                        text = category,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 12.sp
+                                    )
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
+                        }
+                    }
+
+                    // Horizontal Cards for Recipes
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(filteredRecipes) { recipe ->
+                            FitnessRecipeCard(
+                                recipe = recipe,
+                                onOpenRecipe = { selectedRecipeForDetail = recipe },
+                                onQuickLog = {
+                                    viewModel.addMeal(
+                                        name = recipe.title,
+                                        mealType = recipe.category,
+                                        calories = recipe.calories,
+                                        protein = recipe.proteinG,
+                                        carbs = recipe.carbsG,
+                                        fat = recipe.fatG,
+                                        serving = "1 serving"
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 4. Today's Logged Meals by Category
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -159,6 +263,150 @@ fun NutritionScreen(
                 showAddMealDialog = false
             }
         )
+    }
+
+    selectedRecipeForDetail?.let { recipe ->
+        RecipeDetailDialog(
+            recipe = recipe,
+            onDismiss = { selectedRecipeForDetail = null },
+            onLogRecipeMeal = { r ->
+                viewModel.addMeal(
+                    name = r.title,
+                    mealType = r.category,
+                    calories = r.calories,
+                    protein = r.proteinG,
+                    carbs = r.carbsG,
+                    fat = r.fatG,
+                    serving = "1 serving"
+                )
+            }
+        )
+    }
+}
+
+@Composable
+fun FitnessRecipeCard(
+    recipe: FitnessRecipe,
+    onOpenRecipe: () -> Unit,
+    onQuickLog: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable { onOpenRecipe() }
+            .testTag("recipe_card_${recipe.id}"),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = ElectricBlue.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = recipe.category.uppercase(),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ElectricBlue
+                    )
+                }
+
+                Text(
+                    text = "⏱️ ${recipe.prepTimeMinutes + recipe.cookTimeMinutes}m",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = recipe.title,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = recipe.description,
+                    fontSize = 11.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Macros Pill
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${recipe.calories} kcal",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    color = NeonCyan
+                )
+                Text(
+                    text = "${recipe.proteinG}g P",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    color = ElectricBlue
+                )
+                Text(
+                    text = "${recipe.carbsG}g C",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    color = AmberGold
+                )
+                Text(
+                    text = "${recipe.fatG}g F",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    color = CoralOrange
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onOpenRecipe,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Recipe", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = onQuickLog,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Log", modifier = Modifier.size(14.dp))
+                }
+            }
+        }
     }
 }
 

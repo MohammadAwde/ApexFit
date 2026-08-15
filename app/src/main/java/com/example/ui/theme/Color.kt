@@ -31,12 +31,17 @@ val BentoLightPrimaryContainer = Color(0xFFEADDFF)
 
 // Brand Accents
 val ElectricGreen = Color(0xFF00E676)
+val EmeraldGreen = Color(0xFF10B981)
+val ElectricBlue = Color(0xFF38BDF8)
+val AmberGold = Color(0xFFF59E0B)
+val CoralOrange = Color(0xFFFB923C)
 val NeonCyan = Color(0xFFD0BCFF)
 val NeonCyanDark = Color(0xFF6750A4)
 val NeonLime = Color(0xFFD0BCFF)
 val NeonLimeDark = Color(0xFF81C784)
 val ElectricOrange = Color(0xFFFFB74D)
 val PulseRed = Color(0xFFB3261E)
+val CrimsonRed = Color(0xFFE53935)
 val RoyalPurple = Color(0xFF4F378B)
 val GoldStar = Color(0xFFFFD54F)
 

@@ -60,11 +60,18 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
         val database = AppDatabase.getDatabase(application, viewModelScope)
         repository = FitnessRepository(
             userProfileDao = database.userProfileDao(),
+            userAccountDao = database.userAccountDao(),
             workoutDao = database.workoutDao(),
+            exerciseLibraryDao = database.exerciseLibraryDao(),
             nutritionDao = database.nutritionDao(),
+            foodLibraryDao = database.foodLibraryDao(),
             wearableDao = database.wearableDao(),
+            biometricDao = database.biometricDao(),
             socialDao = database.socialDao(),
-            goalDao = database.goalDao()
+            goalDao = database.goalDao(),
+            progressDao = database.progressDao(),
+            gamificationDao = database.gamificationDao(),
+            aiAdaptationDao = database.aiAdaptationDao()
         )
         NotificationHelper.initChannels(application)
     }
@@ -83,9 +90,14 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
     val allWearables = repository.allWearableDevices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val activeWearable = repository.activeConnectedDevice.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val allExercises = repository.allExercises.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allFoods = repository.allFoods.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val biometricHistory = repository.recent7DayBiometrics.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val socialPosts = repository.allPosts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val goals = repository.allGoals.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val prs = repository.allPRs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val progressRecords = repository.allProgressRecords.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val liveTelemetry: StateFlow<LiveHealthTelemetry> = sensorManager.telemetry
     val isBleScanning: StateFlow<Boolean> = sensorManager.isScanning
@@ -109,242 +121,15 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
     private val _isAiAnalyzing = MutableStateFlow(false)
     val isAiAnalyzing: StateFlow<Boolean> = _isAiAnalyzing.asStateFlow()
 
-    // Gamification & Challenges State
-    private val _challenges = MutableStateFlow(
-        listOf(
-            FitnessChallenge(
-                id = "daily_cals_400",
-                title = "Metabolic Inferno",
-                description = "Burn 400 active calories in any workout session today.",
-                category = ChallengeCategory.DAILY,
-                metricType = ChallengeMetricType.CALORIES,
-                targetValue = 400f,
-                currentValue = 430f,
-                xpReward = 150,
-                deadlineText = "Ends Today (Midnight)",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "FIRE"
-            ),
-            FitnessChallenge(
-                id = "daily_steps_10k",
-                title = "10,000 Step Quest",
-                description = "Log 10,000 steps through wearable or sensor tracking.",
-                category = ChallengeCategory.DAILY,
-                metricType = ChallengeMetricType.STEPS,
-                targetValue = 10000f,
-                currentValue = 7840f,
-                xpReward = 120,
-                deadlineText = "Ends in 6 hrs",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "RUN"
-            ),
-            FitnessChallenge(
-                id = "daily_water_hero",
-                title = "Cellular Hydration 3L",
-                description = "Drink and log 3,000 ml of water throughout the day.",
-                category = ChallengeCategory.DAILY,
-                metricType = ChallengeMetricType.HYDRATION_ML,
-                targetValue = 3000f,
-                currentValue = 1750f,
-                xpReward = 100,
-                deadlineText = "Ends in 6 hrs",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "WATER"
-            ),
-            FitnessChallenge(
-                id = "weekly_iron_titan",
-                title = "Iron Lifter 25,000 kg Volume",
-                description = "Accumulate 25,000 kg in total lifted resistance volume across all routines this week.",
-                category = ChallengeCategory.WEEKLY,
-                metricType = ChallengeMetricType.TOTAL_VOLUME_KG,
-                targetValue = 25000f,
-                currentValue = 18450f,
-                xpReward = 500,
-                deadlineText = "3 Days Left",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "STRENGTH"
-            ),
-            FitnessChallenge(
-                id = "weekly_zone4_cardio",
-                title = "Zone 4 Cardio Crusher",
-                description = "Spend at least 45 minutes in high-intensity Anaerobic Zone 4 (>150 bpm).",
-                category = ChallengeCategory.WEEKLY,
-                metricType = ChallengeMetricType.DURATION_MINUTES,
-                targetValue = 45f,
-                currentValue = 32f,
-                xpReward = 450,
-                deadlineText = "3 Days Left",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "HEART"
-            ),
-            FitnessChallenge(
-                id = "community_global_million",
-                title = "August 1,000,000 Steps Pool",
-                description = "Join 4,200+ ApexFit athletes to collectively hit 1 Million steps this week.",
-                category = ChallengeCategory.COMMUNITY,
-                metricType = ChallengeMetricType.STEPS,
-                targetValue = 1000000f,
-                currentValue = 742500f,
-                xpReward = 750,
-                deadlineText = "4 Days Left",
-                isJoined = true,
-                isClaimed = false,
-                iconDescriptor = "GLOBE"
-            )
-        )
-    )
-    val challenges: StateFlow<List<FitnessChallenge>> = _challenges.asStateFlow()
+    // Gamification & Challenges State (Room backed)
+    val challenges: StateFlow<List<FitnessChallenge>> = repository.allChallenges
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _milestoneBadges = MutableStateFlow(
-        listOf(
-            MilestoneBadge(
-                id = "badge_first_5k",
-                title = "First 5k Run",
-                subtitle = "Cardio Milestone",
-                description = "Completed first continuous 5 Kilometer tempo run or outdoor track.",
-                rarity = BadgeRarity.RARE,
-                category = BadgeCategory.CARDIO,
-                currentProgress = 1,
-                maxProgress = 1,
-                isUnlocked = true,
-                unlockedDate = "3 Days ago",
-                xpReward = 300,
-                iconEmoji = "🏃"
-            ),
-            MilestoneBadge(
-                id = "badge_10_streak",
-                title = "10 Workout Streak",
-                subtitle = "Consistency Champion",
-                description = "Logged 10 or more consecutive active workout days without breaking rhythm.",
-                rarity = BadgeRarity.EPIC,
-                category = BadgeCategory.STREAK,
-                currentProgress = 16,
-                maxProgress = 10,
-                isUnlocked = true,
-                unlockedDate = "Yesterday",
-                xpReward = 500,
-                iconEmoji = "🔥"
-            ),
-            MilestoneBadge(
-                id = "badge_iron_titan",
-                title = "Iron Titan (50k Volume)",
-                subtitle = "Strength Elite",
-                description = "Lifted over 50,000 kg in cumulative resistance training volume.",
-                rarity = BadgeRarity.LEGENDARY,
-                category = BadgeCategory.STRENGTH,
-                currentProgress = 38450,
-                maxProgress = 50000,
-                isUnlocked = false,
-                unlockedDate = null,
-                xpReward = 1000,
-                iconEmoji = "🏋️"
-            ),
-            MilestoneBadge(
-                id = "badge_hydration_hero",
-                title = "Hydration Hero",
-                subtitle = "Optimal Recovery",
-                description = "Hit your daily 3,000ml water goal 7 days in a single week.",
-                rarity = BadgeRarity.COMMON,
-                category = BadgeCategory.HYDRATION,
-                currentProgress = 6,
-                maxProgress = 7,
-                isUnlocked = false,
-                unlockedDate = null,
-                xpReward = 250,
-                iconEmoji = "💧"
-            ),
-            MilestoneBadge(
-                id = "badge_hiit_dynamo",
-                title = "HIIT Dynamo",
-                subtitle = "Metabolic Peak",
-                description = "Burned 350+ kcal in a single high-intensity interval session.",
-                rarity = BadgeRarity.RARE,
-                category = BadgeCategory.CARDIO,
-                currentProgress = 1,
-                maxProgress = 1,
-                isUnlocked = true,
-                unlockedDate = "Last Week",
-                xpReward = 350,
-                iconEmoji = "⚡"
-            ),
-            MilestoneBadge(
-                id = "badge_century_club",
-                title = "Centurion Lifter",
-                subtitle = "100 Sets Logged",
-                description = "Successfully finished 100 recorded exercise sets across all routines.",
-                rarity = BadgeRarity.EPIC,
-                category = BadgeCategory.STRENGTH,
-                currentProgress = 82,
-                maxProgress = 100,
-                isUnlocked = false,
-                unlockedDate = null,
-                xpReward = 600,
-                iconEmoji = "👑"
-            ),
-            MilestoneBadge(
-                id = "badge_early_bird",
-                title = "Early Bird Dawn Crusher",
-                subtitle = "Morning Discipline",
-                description = "Completed and logged a full workout session before 8:00 AM.",
-                rarity = BadgeRarity.COMMON,
-                category = BadgeCategory.CONSISTENCY,
-                currentProgress = 1,
-                maxProgress = 1,
-                isUnlocked = true,
-                unlockedDate = "5 Days ago",
-                xpReward = 200,
-                iconEmoji = "🌅"
-            ),
-            MilestoneBadge(
-                id = "badge_night_owl_recovery",
-                title = "Night Owl Mobility",
-                subtitle = "Joint Longevity",
-                description = "Finished a 25-min dynamic flow & recovery session in the evening.",
-                rarity = BadgeRarity.COMMON,
-                category = BadgeCategory.RECOVERY,
-                currentProgress = 1,
-                maxProgress = 1,
-                isUnlocked = true,
-                unlockedDate = "2 Weeks ago",
-                xpReward = 200,
-                iconEmoji = "🌙"
-            ),
-            MilestoneBadge(
-                id = "badge_calisthenics_ace",
-                title = "Calisthenics Ace",
-                subtitle = "Bodyweight Mastery",
-                description = "Recorded 15+ strict pull-ups or bodyweight dip PR in single set.",
-                rarity = BadgeRarity.RARE,
-                category = BadgeCategory.STRENGTH,
-                currentProgress = 1,
-                maxProgress = 1,
-                isUnlocked = true,
-                unlockedDate = "Yesterday",
-                xpReward = 400,
-                iconEmoji = "🦾"
-            )
-        )
-    )
-    val milestoneBadges: StateFlow<List<MilestoneBadge>> = _milestoneBadges.asStateFlow()
+    val milestoneBadges: StateFlow<List<MilestoneBadge>> = repository.allBadges
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _gamificationStats = MutableStateFlow(
-        UserGamificationStats(
-            totalXp = 3120,
-            currentLevel = 9,
-            xpToNextLevel = 3600,
-            currentLevelXp = 720,
-            totalBadgesUnlocked = 6,
-            activeChallengesCount = 6,
-            completedChallengesCount = 14,
-            rankTitle = "Apex Champion"
-        )
-    )
-    val gamificationStats: StateFlow<UserGamificationStats> = _gamificationStats.asStateFlow()
+    val gamificationStats: StateFlow<UserGamificationStats> = repository.gamificationStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserGamificationStats())
 
     private val _newlyUnlockedBadge = MutableStateFlow<MilestoneBadge?>(null)
     val newlyUnlockedBadge: StateFlow<MilestoneBadge?> = _newlyUnlockedBadge.asStateFlow()
@@ -352,39 +137,10 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedLeaderboardCategory = MutableStateFlow("XP")
     val selectedLeaderboardCategory: StateFlow<String> = _selectedLeaderboardCategory.asStateFlow()
 
-    val leaderboardEntries: StateFlow<List<LeaderboardEntry>> = _selectedLeaderboardCategory.map { cat ->
-        when (cat) {
-            "Calories" -> listOf(
-                LeaderboardEntry(1, "Marcus Vance", "MV", "ELITE", 6420, "kcal", isCurrentUser = false, level = 14, trend = "UP"),
-                LeaderboardEntry(2, userProfile.value?.name ?: "Alex Rivers", "AR", "PRO", 5890, "kcal", isCurrentUser = true, level = 9, trend = "UP"),
-                LeaderboardEntry(3, "Elena Rostova", "ER", "ELITE", 5410, "kcal", isCurrentUser = false, level = 12, trend = "SAME"),
-                LeaderboardEntry(4, "David Kim", "DK", "PRO", 4980, "kcal", isCurrentUser = false, level = 8, trend = "DOWN"),
-                LeaderboardEntry(5, "Sarah Jenkins", "SJ", "ATHLETE", 4620, "kcal", isCurrentUser = false, level = 7, trend = "UP"),
-                LeaderboardEntry(6, "Liam Chen", "LC", "PRO", 4350, "kcal", isCurrentUser = false, level = 6, trend = "SAME")
-            )
-            "Steps" -> listOf(
-                LeaderboardEntry(1, "Elena Rostova", "ER", "ELITE", 14820, "steps", isCurrentUser = false, level = 12, trend = "UP"),
-                LeaderboardEntry(2, "Marcus Vance", "MV", "ELITE", 12400, "steps", isCurrentUser = false, level = 14, trend = "SAME"),
-                LeaderboardEntry(3, userProfile.value?.name ?: "Alex Rivers", "AR", "PRO", 10240, "steps", isCurrentUser = true, level = 9, trend = "UP"),
-                LeaderboardEntry(4, "Jordan Kai", "JK", "PRO", 9820, "steps", isCurrentUser = false, level = 10, trend = "UP"),
-                LeaderboardEntry(5, "Emily Stone", "ES", "ATHLETE", 8940, "steps", isCurrentUser = false, level = 8, trend = "DOWN")
-            )
-            "Streak" -> listOf(
-                LeaderboardEntry(1, "Marcus Vance", "MV", "ELITE", 42, "days", isCurrentUser = false, level = 14, trend = "SAME"),
-                LeaderboardEntry(2, "Elena Rostova", "ER", "ELITE", 28, "days", isCurrentUser = false, level = 12, trend = "UP"),
-                LeaderboardEntry(3, userProfile.value?.name ?: "Alex Rivers", "AR", "PRO", 16, "days", isCurrentUser = true, level = 9, trend = "UP"),
-                LeaderboardEntry(4, "David Kim", "DK", "PRO", 14, "days", isCurrentUser = false, level = 8, trend = "SAME"),
-                LeaderboardEntry(5, "Jordan Kai", "JK", "PRO", 12, "days", isCurrentUser = false, level = 10, trend = "UP")
-            )
-            else -> listOf( // XP
-                LeaderboardEntry(1, "Marcus Vance", "MV", "ELITE", 4850, "XP", isCurrentUser = false, level = 14, trend = "UP"),
-                LeaderboardEntry(2, userProfile.value?.name ?: "Alex Rivers", "AR", "PRO", 3120, "XP", isCurrentUser = true, level = 9, trend = "UP"),
-                LeaderboardEntry(3, "Elena Rostova", "ER", "ELITE", 2980, "XP", isCurrentUser = false, level = 12, trend = "SAME"),
-                LeaderboardEntry(4, "Jordan Kai", "JK", "PRO", 2450, "XP", isCurrentUser = false, level = 10, trend = "DOWN"),
-                LeaderboardEntry(5, "David Kim", "DK", "PRO", 2180, "XP", isCurrentUser = false, level = 8, trend = "UP")
-            )
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val leaderboardEntries: StateFlow<List<LeaderboardEntry>> = _selectedLeaderboardCategory
+        .flatMapLatest { cat -> repository.getLeaderboard(cat) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Active Workout Player State
     private val _activeSession = MutableStateFlow<ActiveWorkoutSession?>(null)
@@ -777,6 +533,153 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun logBodyProgressRecord(
+        weightKg: Float,
+        bodyFat: Float? = null,
+        muscleMass: Float? = null,
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            repository.logProgressRecord(
+                ProgressRecordEntity(
+                    dateString = dateStr,
+                    weightKg = weightKg,
+                    bodyFatPercent = bodyFat,
+                    muscleMassKg = muscleMass,
+                    notes = notes
+                )
+            )
+            showFeedback("Body composition progress record saved!")
+        }
+    }
+
+    // Authentication State & Operations
+    private val _isAuthLoading = MutableStateFlow(false)
+    val isAuthLoading: StateFlow<Boolean> = _isAuthLoading.asStateFlow()
+
+    fun login(email: String, pass: String, onComplete: (Boolean, String) -> Unit = { _, _ -> }) {
+        if (email.isBlank() || !email.contains("@")) {
+            onComplete(false, "Please enter a valid email address.")
+            return
+        }
+        if (pass.length < 4) {
+            onComplete(false, "Password must be at least 4 characters.")
+            return
+        }
+
+        viewModelScope.launch {
+            _isAuthLoading.value = true
+            try {
+                val result = repository.loginWithEmail(email, pass)
+                if (result.isSuccess) {
+                    val user = result.getOrNull()
+                    showFeedback("Welcome back, ${user?.name ?: "Athlete"}!")
+                    onComplete(true, "Login successful")
+                } else {
+                    onComplete(false, result.exceptionOrNull()?.message ?: "Login failed")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.message ?: "Authentication error")
+            } finally {
+                _isAuthLoading.value = false
+            }
+        }
+    }
+
+    fun register(
+        name: String,
+        email: String,
+        pass: String,
+        goal: String,
+        level: String,
+        onComplete: (Boolean, String) -> Unit = { _, _ -> }
+    ) {
+        if (name.isBlank()) {
+            onComplete(false, "Please enter your full name.")
+            return
+        }
+        if (email.isBlank() || !email.contains("@")) {
+            onComplete(false, "Please enter a valid email address.")
+            return
+        }
+        if (pass.length < 6) {
+            onComplete(false, "Password must be at least 6 characters.")
+            return
+        }
+
+        viewModelScope.launch {
+            _isAuthLoading.value = true
+            try {
+                val result = repository.registerAccount(name, email, pass, goal, level)
+                if (result.isSuccess) {
+                    showFeedback("Account created! Welcome to ApexFit, $name.")
+                    onComplete(true, "Registration successful")
+                } else {
+                    onComplete(false, result.exceptionOrNull()?.message ?: "Registration failed")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.message ?: "Registration error")
+            } finally {
+                _isAuthLoading.value = false
+            }
+        }
+    }
+
+    fun quickDemoLogin(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isAuthLoading.value = true
+            repository.quickDemoLogin()
+            _isAuthLoading.value = false
+            showFeedback("Logged in as Demo Athlete (Alex Rivers)")
+            onComplete()
+        }
+    }
+
+    fun loginWithBiometrics(onComplete: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            _isAuthLoading.value = true
+            try {
+                val result = repository.loginWithBiometrics()
+                if (result.isSuccess) {
+                    val user = result.getOrNull()
+                    showFeedback("Biometric authentication verified! Welcome back, ${user?.name ?: "Athlete"}.")
+                    onComplete(true, "Biometric login successful")
+                } else {
+                    onComplete(false, result.exceptionOrNull()?.message ?: "Biometric login failed")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.message ?: "Biometric login error")
+            } finally {
+                _isAuthLoading.value = false
+            }
+        }
+    }
+
+    fun toggleBiometricSetting(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateBiometricEnabled(enabled)
+            showFeedback(if (enabled) "Biometric Sign-In enabled" else "Biometric Sign-In disabled")
+        }
+    }
+
+    fun logout(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.logout()
+            showFeedback("Logged out successfully.")
+            onComplete()
+        }
+    }
+
+    fun requestPasswordReset(email: String, onComplete: (Boolean, String) -> Unit) {
+        if (email.isBlank() || !email.contains("@")) {
+            onComplete(false, "Please enter a valid email address.")
+            return
+        }
+        showFeedback("Password reset link sent to $email")
+        onComplete(true, "Password reset instructions sent to $email")
+    }
+
     // Premium Subscription
     fun updateSubscriptionTier(tier: String) {
         viewModelScope.launch {
@@ -793,13 +696,17 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
         sleepQuality: Int = 4,
         notes: String = ""
     ) {
-        _userWorkoutFeedback.value = UserWorkoutFeedback(
+        val fb = UserWorkoutFeedback(
             rpeRating = rpe,
             soreMuscles = soreMuscles,
             energyLevel = energy,
             sleepQualityRating = sleepQuality,
             userNotes = notes
         )
+        _userWorkoutFeedback.value = fb
+        viewModelScope.launch {
+            repository.saveUserFeedback(fb)
+        }
         // Automatically re-run dynamic analysis when feedback updates
         runAiWorkoutAdaptation()
     }
@@ -829,6 +736,7 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
 
             _aiAdaptation.value = finalAnalysis
             _isAiAnalyzing.value = false
+            repository.saveAiAdaptation(finalAnalysis)
             showFeedback("🧠 AI Coach: Generated dynamic workout routine adaptations!")
         }
     }
@@ -884,44 +792,27 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
 
     // Gamification Methods
     fun joinChallenge(challengeId: String) {
-        _challenges.update { list ->
-            list.map { ch ->
-                if (ch.id == challengeId) ch.copy(isJoined = true) else ch
-            }
+        viewModelScope.launch {
+            repository.joinChallenge(challengeId)
+            showFeedback("Joined fitness challenge!")
         }
-        showFeedback("Joined fitness challenge!")
     }
 
     fun claimChallengeReward(challengeId: String) {
-        var claimedXp = 0
-        var challengeTitle = ""
-        _challenges.update { list ->
-            list.map { ch ->
-                if (ch.id == challengeId && ch.isCompleted && !ch.isClaimed) {
-                    claimedXp = ch.xpReward
-                    challengeTitle = ch.title
-                    ch.copy(isClaimed = true)
-                } else ch
+        val target = challenges.value.find { it.id == challengeId && it.isCompleted && !it.isClaimed }
+        if (target != null) {
+            viewModelScope.launch {
+                repository.claimChallengeReward(challengeId, target.xpReward)
+                awardXp(target.xpReward, "Challenge Completed: ${target.title}")
             }
-        }
-
-        if (claimedXp > 0) {
-            awardXp(claimedXp, "Challenge Completed: $challengeTitle")
         }
     }
 
     fun awardXp(amount: Int, reason: String) {
-        val current = _gamificationStats.value
+        val current = gamificationStats.value
         val newTotalXp = current.totalXp + amount
         val newLevel = (newTotalXp / 350) + 1
-        val levelXp = newTotalXp % 350
 
-        _gamificationStats.value = current.copy(
-            totalXp = newTotalXp,
-            currentLevel = newLevel,
-            currentLevelXp = levelXp,
-            xpToNextLevel = (newLevel) * 350 + 350
-        )
         showFeedback("+$amount XP! $reason")
 
         // Trigger notification if leveled up
@@ -946,24 +837,18 @@ class FitnessViewModel(application: Application) : AndroidViewModel(application)
         val currentStreak = userProfile.value?.streakDays ?: 14
         val totalVolume = recentWorkoutLogs.value.sumOf { it.totalVolumeKg.toDouble() }
 
-        _milestoneBadges.update { list ->
-            list.map { badge ->
-                when (badge.id) {
-                    "badge_10_streak" -> {
-                        if (currentStreak >= 10 && !badge.isUnlocked) {
-                            val unlocked = badge.copy(isUnlocked = true, unlockedDate = "Today")
-                            _newlyUnlockedBadge.value = unlocked
-                            unlocked
-                        } else badge.copy(currentProgress = currentStreak)
+        val currentBadges = milestoneBadges.value
+        currentBadges.forEach { badge ->
+            when (badge.id) {
+                "badge_10_streak" -> {
+                    if (currentStreak >= 10 && !badge.isUnlocked) {
+                        _newlyUnlockedBadge.value = badge.copy(isUnlocked = true, unlockedDate = "Today")
                     }
-                    "badge_iron_titan" -> {
-                        if (totalVolume >= 50000 && !badge.isUnlocked) {
-                            val unlocked = badge.copy(isUnlocked = true, unlockedDate = "Today")
-                            _newlyUnlockedBadge.value = unlocked
-                            unlocked
-                        } else badge.copy(currentProgress = totalVolume.toInt())
+                }
+                "badge_iron_titan" -> {
+                    if (totalVolume >= 50000 && !badge.isUnlocked) {
+                        _newlyUnlockedBadge.value = badge.copy(isUnlocked = true, unlockedDate = "Today")
                     }
-                    else -> badge
                 }
             }
         }
